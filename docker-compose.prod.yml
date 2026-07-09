@@ -1,0 +1,62 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: jcb_postgres_prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-jcb_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-jcb_secure_password123}
+      POSTGRES_DB: ${POSTGRES_DB:-jcb_rental_db}
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jcb_admin -d jcb_rental_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: jcb_backend_prod
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-jcb_admin}:${POSTGRES_PASSWORD:-jcb_secure_password123}@db:5432/${POSTGRES_DB:-jcb_rental_db}
+      - SECRET_KEY=${SECRET_KEY:-CHANGE_THIS_SECRET_KEY_IN_PRODUCTION}
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=10080
+      - BACKEND_CORS_ORIGINS=["${FRONTEND_URL:-http://localhost:3000}"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Pass NEXT_PUBLIC_API_URL during build so it's baked into static files
+        NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost/api/v1}
+    container_name: jcb_frontend_prod
+    restart: always
+    environment:
+      - NEXT_PUBLIC_API_URL=${API_URL:-http://localhost/api/v1}
+    depends_on:
+      - backend
+
+  nginx:
+    image: nginx:alpine
+    container_name: jcb_nginx_prod
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+
+volumes:
+  postgres_data_prod:
+    driver: local

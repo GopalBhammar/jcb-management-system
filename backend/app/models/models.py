@@ -1,8 +1,16 @@
+"""SQLAlchemy models — all database entities for the JCB Management System."""
+
 import uuid
-from datetime import datetime, date as date_type
+from datetime import datetime, date as date_type, timezone
 from sqlalchemy import Column, String, Boolean, DateTime, Date, Numeric, Text, ForeignKey, Uuid
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+
+
+def _utcnow():
+    """Helper to get current UTC time (timezone-aware)."""
+    return datetime.now(timezone.utc)
+
 
 class User(Base):
     __tablename__ = "users"
@@ -13,7 +21,7 @@ class User(Base):
     full_name = Column(String(255), nullable=False)
     role = Column(String(50), default="operator", nullable=False) # admin or operator
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=_utcnow, nullable=False)
 
     # Relationships
     bills_created = relationship("Bill", back_populates="creator")
@@ -33,7 +41,7 @@ class Customer(Base):
     address = Column(Text, nullable=True)
     gst_number = Column(String(50), nullable=True)
     notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=_utcnow, nullable=False)
 
     # Relationships
     bills = relationship("Bill", back_populates="customer", cascade="all, delete-orphan")
@@ -47,7 +55,7 @@ class Machine(Base):
     name = Column(String(255), unique=True, index=True, nullable=False) # e.g. JCB-3DX-1
     plate_number = Column(String(50), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=_utcnow, nullable=False)
 
     # Relationships
     bills = relationship("Bill", back_populates="machine")
@@ -58,7 +66,7 @@ class ExpenseCategory(Base):
 
     id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(100), unique=True, index=True, nullable=False) # e.g. Diesel, Maintenance
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=_utcnow, nullable=False)
 
     # Relationships
     expenses = relationship("Expense", back_populates="category")
@@ -74,7 +82,7 @@ class Expense(Base):
     description = Column(Text, nullable=True)
     receipt_url = Column(String(512), nullable=True)
     created_by = Column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=_utcnow, nullable=False)
 
     # Relationships
     category = relationship("ExpenseCategory", back_populates="expenses")
@@ -89,6 +97,7 @@ class Bill(Base):
     customer_id = Column(Uuid(as_uuid=True), ForeignKey("customers.id"), nullable=False)
     date = Column(Date, default=date_type.today, nullable=False)
     machine_id = Column(Uuid(as_uuid=True), ForeignKey("machines.id"), nullable=False)
+    site_name = Column(String(255), nullable=True)
     working_hours = Column(Numeric(precision=8, scale=2), nullable=False)
     hourly_rate = Column(Numeric(precision=10, scale=2), nullable=False)
     diesel_charge = Column(Numeric(precision=10, scale=2), default=0.00, nullable=False)
@@ -101,7 +110,7 @@ class Bill(Base):
     remaining_amount = Column(Numeric(precision=12, scale=2), nullable=False)
     status = Column(String(50), default="pending", nullable=False) # pending, partial, paid
     created_by = Column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=_utcnow, nullable=False)
 
     # Relationships
     customer = relationship("Customer", back_populates="bills")
@@ -122,7 +131,7 @@ class Payment(Base):
     reference_number = Column(String(100), nullable=True)
     remark = Column(Text, nullable=True)
     received_by = Column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=_utcnow, nullable=False)
 
     # Relationships
     bill = relationship("Bill", back_populates="payments")
@@ -139,7 +148,7 @@ class Settings(Base):
     gst_number = Column(String(50), nullable=True)
     invoice_prefix = Column(String(20), default="INV", nullable=False)
     default_hourly_rate = Column(Numeric(precision=10, scale=2), default=1500.00, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow, nullable=False)
 
 
 class ActivityLog(Base):
@@ -151,7 +160,7 @@ class ActivityLog(Base):
     table_name = Column(String(100), nullable=True)
     record_id = Column(Uuid(as_uuid=True), nullable=True)
     details = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=_utcnow, nullable=False)
 
     # Relationships
     user = relationship("User", back_populates="activity_logs")

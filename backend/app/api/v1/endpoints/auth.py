@@ -3,12 +3,13 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+import uuid
 from app.api import deps
 from app.core import security
 from app.core.config import settings
 from app.models.models import User
 from app.schemas.token import Token
-from app.schemas.user import UserLogin, UserResponse
+from app.schemas.user import UserLogin, UserResponse, UserCreate
 
 router = APIRouter()
 
@@ -54,3 +55,37 @@ def read_user_me(
     Get current logged in user profile.
     """
     return current_user
+
+
+@router.post("/signup", response_model=UserResponse)
+def signup(
+    db: Session = Depends(deps.get_db),
+    user_in: UserCreate = None
+) -> Any:
+    """
+    Register a new user.
+    """
+    if not user_in:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing request body"
+        )
+    existing_user = db.query(User).filter(User.email == user_in.email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User with this email already exists"
+        )
+    
+    user = User(
+        id=uuid.uuid4(),
+        email=user_in.email,
+        hashed_password=security.get_password_hash(user_in.password),
+        full_name=user_in.full_name,
+        role=user_in.role or "operator",
+        is_active=True
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user

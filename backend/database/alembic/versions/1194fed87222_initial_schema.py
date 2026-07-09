@@ -87,6 +87,7 @@ def upgrade() -> None:
     sa.Column('customer_id', sa.Uuid(), nullable=False),
     sa.Column('date', sa.Date(), nullable=False),
     sa.Column('machine_id', sa.Uuid(), nullable=False),
+    sa.Column('site_name', sa.String(length=255), nullable=True),
     sa.Column('working_hours', sa.Numeric(precision=8, scale=2), nullable=False),
     sa.Column('hourly_rate', sa.Numeric(precision=10, scale=2), nullable=False),
     sa.Column('diesel_charge', sa.Numeric(precision=10, scale=2), nullable=False),

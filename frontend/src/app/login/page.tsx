@@ -142,6 +142,13 @@ export default function LoginPage() {
           </div>
         </form>
 
+        <div className="text-center text-sm text-neutral-400 mt-4">
+          Don&apos;t have an account?{" "}
+          <a href="/signup" className="text-primary hover:underline font-semibold">
+            Sign Up
+          </a>
+        </div>
+
         {/* Demo Credentials Alert */}
         <div className="rounded-2xl border border-primary/10 bg-primary/5 p-4 text-center">
           <p className="text-xs text-primary font-medium">

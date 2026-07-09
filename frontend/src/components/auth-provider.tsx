@@ -58,11 +58,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (isLoading) return;
     
     const token = getCookie("token");
-    const isPublicPath = pathname === "/login" || pathname === "/";
+    const isPublicPath = pathname === "/login" || pathname === "/signup" || pathname === "/";
     
     if (!token && !isPublicPath) {
       router.push("/login");
-    } else if (token && pathname === "/login") {
+    } else if (token && (pathname === "/login" || pathname === "/signup")) {
       router.push("/dashboard");
     }
   }, [user, isLoading, pathname, router]);
