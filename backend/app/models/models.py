@@ -24,9 +24,9 @@ class User(Base):
     created_at = Column(DateTime, default=_utcnow, nullable=False)
 
     # Relationships
-    bills_created = relationship("Bill", back_populates="creator")
-    payments_received = relationship("Payment", back_populates="receiver")
-    expenses_created = relationship("Expense", back_populates="creator")
+    bills_created = relationship("Bill", back_populates="creator", foreign_keys="[Bill.created_by]")
+    payments_received = relationship("Payment", back_populates="receiver", foreign_keys="[Payment.received_by]")
+    expenses_created = relationship("Expense", back_populates="creator", foreign_keys="[Expense.created_by]")
     activity_logs = relationship("ActivityLog", back_populates="user")
 
 
@@ -90,7 +90,7 @@ class Expense(Base):
 
     # Relationships
     category = relationship("ExpenseCategory", back_populates="expenses")
-    creator = relationship("User", back_populates="expenses_created")
+    creator = relationship("User", back_populates="expenses_created", foreign_keys=[created_by])
 
 
 class Bill(Base):
@@ -120,7 +120,7 @@ class Bill(Base):
     # Relationships
     customer = relationship("Customer", back_populates="bills")
     machine = relationship("Machine", back_populates="bills")
-    creator = relationship("User", back_populates="bills_created")
+    creator = relationship("User", back_populates="bills_created", foreign_keys=[created_by])
     payments = relationship("Payment", back_populates="bill", cascade="all, delete-orphan")
 
 
@@ -142,7 +142,7 @@ class Payment(Base):
     # Relationships
     bill = relationship("Bill", back_populates="payments")
     customer = relationship("Customer", back_populates="payments")
-    receiver = relationship("User", back_populates="payments_received")
+    receiver = relationship("User", back_populates="payments_received", foreign_keys=[received_by])
 
 
 class Settings(Base):
