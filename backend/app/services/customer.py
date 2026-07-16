@@ -21,16 +21,12 @@ class CustomerService:
             db, page=page, page_size=page_size, search=search,
             sort_by=sort_by, sort_order=sort_order,
             owner_id=owner_id,
+            payment_status=payment_status,
         )
         # Enrich each customer with outstanding amounts
         items = []
         for c in customers:
             fin = customer_repo.get_outstanding(db, c.id)
-            # Apply payment_status filter
-            if payment_status == "unpaid" and fin["outstanding"] <= 0:
-                continue
-            if payment_status == "paid" and fin["outstanding"] > 0:
-                continue
             items.append({
                 "id": c.id,
                 "customer_id": c.customer_id,
@@ -40,12 +36,6 @@ class CustomerService:
                 "outstanding": fin["outstanding"],
                 "created_at": c.created_at,
             })
-
-        # Adjust totals after filtering
-        if payment_status:
-            total = len(items)
-            import math
-            total_pages = max(1, math.ceil(total / page_size))
 
         return items, total, total_pages
 

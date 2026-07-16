@@ -45,6 +45,8 @@ export default function ExpensesPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [formError, setFormError] = useState("");
   const [categoryName, setCategoryName] = useState("");
+  const [categorySearch, setCategorySearch] = useState("");
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
   const defaultFormData = {
     category_id: "",
@@ -95,10 +97,12 @@ export default function ExpensesPage() {
 
   const closeForm = () => {
     setShowForm(false); setEditId(null); setFormError("");
+    setCategorySearch(""); setShowCategoryDropdown(false);
     setFormData(defaultFormData);
   };
 
   const openNewForm = () => {
+    setCategorySearch(""); setShowCategoryDropdown(false);
     setFormData(defaultFormData);
     setShowForm(true);
   };
@@ -111,16 +115,33 @@ export default function ExpensesPage() {
       date: e.date || "",
       description: e.description || "",
     });
+    const selectedCategory = categories?.find(c => c.id === e.category_id);
+    setCategorySearch(selectedCategory ? selectedCategory.name : "");
+    setShowCategoryDropdown(false);
     setEditId(id); setShowForm(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.category_id) { setFormError("Category is required"); return; }
+    
+    let finalCategoryId = formData.category_id;
+    if (!finalCategoryId) {
+      if (!categorySearch.trim()) { setFormError("Category is required"); return; }
+      try {
+        const newCategory = await apiFetch<ExpenseCategory>("/expenses/categories", { method: "POST", json: { name: categorySearch.trim() } });
+        finalCategoryId = newCategory.id;
+        queryClient.invalidateQueries({ queryKey: ["expense_categories"] });
+      } catch (err: any) {
+        setFormError(err.message || "Failed to create category");
+        return;
+      }
+    }
+    
     if (formData.amount <= 0) { setFormError("Amount must be > 0"); return; }
     
-    if (editId) updateMutation.mutate(formData);
-    else createMutation.mutate(formData);
+    const payload = { ...formData, category_id: finalCategoryId };
+    if (editId) updateMutation.mutate(payload);
+    else createMutation.mutate(payload);
   };
 
   const handleCategorySubmit = (e: React.FormEvent) => {
@@ -228,12 +249,74 @@ export default function ExpensesPage() {
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div>
+                <div className="relative">
                   <label className="block text-xs font-semibold text-neutral-400 mb-1.5">Category *</label>
-                  <select value={formData.category_id} onChange={e => setFormData({ ...formData, category_id: e.target.value })} className="w-full rounded-xl border border-neutral-800 bg-neutral-900/50 py-2.5 px-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/30">
-                    <option value="">Select Category...</option>
-                    {categories?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Type to search or create category..."
+                      value={categorySearch}
+                      onFocus={() => {
+                        setShowCategoryDropdown(true);
+                        if (formData.category_id) {
+                          setCategorySearch("");
+                        }
+                      }}
+                      onChange={(e) => {
+                        setCategorySearch(e.target.value);
+                        setShowCategoryDropdown(true);
+                        if (formData.category_id) {
+                          setFormData(prev => ({ ...prev, category_id: "" }));
+                        }
+                      }}
+                      className="w-full rounded-xl border border-neutral-800 bg-neutral-900/50 py-2.5 px-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                    {formData.category_id && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] bg-primary/20 text-primary border border-primary/30 px-2.5 py-0.5 rounded-full font-bold pointer-events-none">
+                        Selected
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Autocomplete Dropdown List */}
+                  {showCategoryDropdown && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => {
+                        setShowCategoryDropdown(false);
+                        const curr = categories?.find(c => c.id === formData.category_id);
+                        setCategorySearch(curr ? curr.name : categorySearch);
+                      }} />
+                      <div className="absolute left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-950 p-1.5 shadow-2xl z-20 space-y-0.5">
+                        {categories?.filter(c => 
+                          c.name.toLowerCase().includes(categorySearch.toLowerCase())
+                        ).length === 0 ? (
+                          <div className="p-3 text-xs text-neutral-500 text-center">
+                            Press Save/Update to add "{categorySearch}" as a new category.
+                          </div>
+                        ) : (
+                          categories?.filter(c => c.name.toLowerCase().includes(categorySearch.toLowerCase()))
+                            .map(c => (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => {
+                                  setFormData(prev => ({ ...prev, category_id: c.id }));
+                                  setCategorySearch(c.name);
+                                  setShowCategoryDropdown(false);
+                                }}
+                                className={`w-full text-left rounded-lg py-2 px-3 text-sm transition-all flex items-center justify-between ${
+                                  formData.category_id === c.id 
+                                    ? "bg-primary text-neutral-950 font-semibold" 
+                                    : "text-neutral-300 hover:bg-neutral-900"
+                                }`}
+                              >
+                                <span>{c.name}</span>
+                              </button>
+                            ))
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-neutral-400 mb-1.5">Date *</label>

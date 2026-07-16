@@ -84,6 +84,8 @@ export default function BillsPage() {
   const [formError, setFormError] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [machineSearch, setMachineSearch] = useState("");
+  const [showMachineDropdown, setShowMachineDropdown] = useState(false);
 
 
   const defaultFormData = {
@@ -149,11 +151,13 @@ export default function BillsPage() {
   const closeForm = () => {
     setShowForm(false); setEditId(null); setFormError("");
     setCustomerSearch(""); setShowCustomerDropdown(false);
+    setMachineSearch(""); setShowMachineDropdown(false);
     setFormData({ ...defaultFormData, hourly_rate: settings?.default_hourly_rate || 1500 });
   };
 
   const openNewForm = () => {
     setCustomerSearch(""); setShowCustomerDropdown(false);
+    setMachineSearch(""); setShowMachineDropdown(false);
     setFormData({ ...defaultFormData, hourly_rate: settings?.default_hourly_rate || 1500 });
     setShowForm(true);
   };
@@ -177,6 +181,9 @@ export default function BillsPage() {
     const selected = customers?.items.find(c => c.id === b.customer_id);
     setCustomerSearch(selected ? selected.name : "");
     setShowCustomerDropdown(false);
+    const selectedMachine = machines?.find(m => m.id === b.machine_id);
+    setMachineSearch(selectedMachine ? selectedMachine.name : "");
+    setShowMachineDropdown(false);
     setEditId(id); setShowForm(true);
   };
 
@@ -185,13 +192,26 @@ export default function BillsPage() {
     setViewBill(b);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.customer_id) { setFormError("Customer is required"); return; }
-    if (!formData.machine_id) { setFormError("Machine is required"); return; }
+    
+    let finalMachineId = formData.machine_id;
+    if (!finalMachineId) {
+      if (!machineSearch.trim()) { setFormError("Machine is required"); return; }
+      try {
+        const newMachine = await apiFetch<Machine>("/machines", { method: "POST", json: { name: machineSearch.trim(), is_active: true } });
+        finalMachineId = newMachine.id;
+        queryClient.invalidateQueries({ queryKey: ["machines_dropdown"] });
+      } catch (err: any) {
+        setFormError(err.message || "Failed to create machine type");
+        return;
+      }
+    }
+    
     if (formData.working_hours <= 0) { setFormError("Working hours must be > 0"); return; }
     
-    const payload = { ...formData };
+    const payload = { ...formData, machine_id: finalMachineId };
     if (payload.is_paid) {
       const subtotal = (payload.working_hours * payload.hourly_rate) + payload.diesel_charge + payload.transport_charge + payload.other_charges - payload.discount;
       const gst = subtotal * (payload.gst_percent / 100);
@@ -388,12 +408,74 @@ export default function BillsPage() {
                     </>
                   )}
                 </div>
-                <div>
+                <div className="relative">
                   <label className="block text-xs font-semibold text-neutral-400 mb-1.5">Machine *</label>
-                  <select value={formData.machine_id} onChange={e => setFormData({ ...formData, machine_id: e.target.value })} className="w-full rounded-xl border border-neutral-800 bg-neutral-900/50 py-2.5 px-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/30">
-                    <option value="">Select Machine...</option>
-                    {machines?.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                  </select>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Type to search or create machine..."
+                      value={machineSearch}
+                      onFocus={() => {
+                        setShowMachineDropdown(true);
+                        if (formData.machine_id) {
+                          setMachineSearch("");
+                        }
+                      }}
+                      onChange={(e) => {
+                        setMachineSearch(e.target.value);
+                        setShowMachineDropdown(true);
+                        if (formData.machine_id) {
+                          setFormData(prev => ({ ...prev, machine_id: "" }));
+                        }
+                      }}
+                      className="w-full rounded-xl border border-neutral-800 bg-neutral-900/50 py-2.5 px-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                    {formData.machine_id && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] bg-primary/20 text-primary border border-primary/30 px-2.5 py-0.5 rounded-full font-bold pointer-events-none">
+                        Selected
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Autocomplete Dropdown List */}
+                  {showMachineDropdown && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => {
+                        setShowMachineDropdown(false);
+                        const curr = machines?.find(m => m.id === formData.machine_id);
+                        setMachineSearch(curr ? curr.name : machineSearch);
+                      }} />
+                      <div className="absolute left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-xl border border-neutral-800 bg-neutral-950 p-1.5 shadow-2xl z-20 space-y-0.5">
+                        {machines?.filter(m => 
+                          m.name.toLowerCase().includes(machineSearch.toLowerCase())
+                        ).length === 0 ? (
+                          <div className="p-3 text-xs text-neutral-500 text-center">
+                            Press Create/Update to save "{machineSearch}" as a new machine type.
+                          </div>
+                        ) : (
+                          machines?.filter(m => m.name.toLowerCase().includes(machineSearch.toLowerCase()))
+                            .map(m => (
+                              <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => {
+                                  setFormData(prev => ({ ...prev, machine_id: m.id }));
+                                  setMachineSearch(m.name);
+                                  setShowMachineDropdown(false);
+                                }}
+                                className={`w-full text-left rounded-lg py-2 px-3 text-sm transition-all flex items-center justify-between ${
+                                  formData.machine_id === m.id 
+                                    ? "bg-primary text-neutral-950 font-semibold" 
+                                    : "text-neutral-300 hover:bg-neutral-900"
+                                }`}
+                              >
+                                <span>{m.name}</span>
+                              </button>
+                            ))
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
                  <div>
                   <label className="block text-xs font-semibold text-neutral-400 mb-1.5">Bill Date *</label>

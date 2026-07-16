@@ -37,10 +37,21 @@ class CustomerRepository(BaseRepository):
         sort_by: Optional[str] = None,
         sort_order: str = "desc",
         owner_id: Optional[uuid.UUID] = None,
+        payment_status: Optional[str] = None,
     ) -> Tuple[List[Customer], int, int]:
         filters = []
         if owner_id:
             filters.append(Customer.owner_id == owner_id)
+            
+        if payment_status:
+            billed_sub = db.query(func.coalesce(func.sum(Bill.total_amount), 0)).filter(Bill.customer_id == Customer.id).correlate(Customer).scalar_subquery()
+            paid_sub = db.query(func.coalesce(func.sum(Payment.amount), 0)).filter(Payment.customer_id == Customer.id).correlate(Customer).scalar_subquery()
+            outstanding_expr = billed_sub - paid_sub
+            if payment_status == "paid":
+                filters.append(outstanding_expr <= 0)
+            elif payment_status == "unpaid":
+                filters.append(outstanding_expr > 0)
+                
         search_columns = [Customer.name, Customer.mobile_number, Customer.village, Customer.customer_id]
         return self.paginate(
             db,
