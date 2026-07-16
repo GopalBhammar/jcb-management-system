@@ -34,6 +34,7 @@ def list_bills(
         search=search, status_filter=status,
         customer_id=customer_id, date_from=date_from, date_to=date_to,
         sort_by=sort_by, sort_order=sort_order,
+        owner_id=current_user.id,
     )
     return {"items": items, "total": total, "page": page, "page_size": page_size, "total_pages": total_pages}
 
@@ -72,7 +73,7 @@ def update_bill(
 def delete_bill(
     bill_id: uuid.UUID,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_admin_user),
+    current_user: User = Depends(deps.get_current_user),
 ):
     bill_service.delete_bill(db, bill_id)
     return {"message": "Bill deleted successfully", "success": True}

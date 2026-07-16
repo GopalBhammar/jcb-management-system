@@ -98,6 +98,7 @@ export default function BillsPage() {
     other_charges: 0,
     discount: 0,
     gst_percent: 0,
+    is_paid: false,
   };
   const [formData, setFormData] = useState(defaultFormData);
 
@@ -171,6 +172,7 @@ export default function BillsPage() {
       other_charges: b.other_charges,
       discount: b.discount,
       gst_percent: b.gst_percent,
+      is_paid: b.status === "paid",
     });
     const selected = customers?.items.find(c => c.id === b.customer_id);
     setCustomerSearch(selected ? selected.name : "");
@@ -189,8 +191,17 @@ export default function BillsPage() {
     if (!formData.machine_id) { setFormError("Machine is required"); return; }
     if (formData.working_hours <= 0) { setFormError("Working hours must be > 0"); return; }
     
-    if (editId) updateMutation.mutate(formData);
-    else createMutation.mutate(formData);
+    const payload = { ...formData };
+    if (payload.is_paid) {
+      const subtotal = (payload.working_hours * payload.hourly_rate) + payload.diesel_charge + payload.transport_charge + payload.other_charges - payload.discount;
+      const gst = subtotal * (payload.gst_percent / 100);
+      payload.paid_amount = subtotal + gst;
+    } else {
+      payload.paid_amount = 0;
+    }
+    
+    if (editId) updateMutation.mutate(payload);
+    else createMutation.mutate(payload);
   };
 
   // Auto-calculated fields for preview
@@ -414,8 +425,19 @@ export default function BillsPage() {
                   <p className="text-xs font-medium text-primary uppercase tracking-wider">Estimated Total</p>
                   <p className="text-2xl font-bold text-white mt-1">{formatCurrency(previewTotal)}</p>
                 </div>
-                <div className="text-right text-xs text-neutral-400">
-                  <p>Base: {formData.working_hours} hrs @ {formatCurrency(formData.hourly_rate)}/hr</p>
+                <div className="flex flex-col items-end gap-2">
+                  <div className="text-right text-xs text-neutral-400">
+                    <p>Base: {formData.working_hours} hrs @ {formatCurrency(formData.hourly_rate)}/hr</p>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer mt-2">
+                    <input 
+                      type="checkbox" 
+                      checked={formData.is_paid} 
+                      onChange={e => setFormData({ ...formData, is_paid: e.target.checked })} 
+                      className="w-4 h-4 rounded border-neutral-700 text-primary focus:ring-primary/50 bg-neutral-900" 
+                    />
+                    <span className="text-sm font-semibold text-white">Mark as Fully Paid</span>
+                  </label>
                 </div>
               </div>
 

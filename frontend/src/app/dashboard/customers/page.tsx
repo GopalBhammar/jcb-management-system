@@ -50,6 +50,7 @@ export default function CustomersPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [viewCustomer, setViewCustomer] = useState<CustomerDetail | null>(null);
@@ -58,8 +59,8 @@ export default function CustomersPage() {
   const [formError, setFormError] = useState("");
 
   const { data, isLoading } = useQuery<PaginatedCustomers>({
-    queryKey: ["customers", page, search],
-    queryFn: () => apiFetch(`/customers?page=${page}&page_size=10&search=${search}`),
+    queryKey: ["customers", page, search, paymentStatusFilter],
+    queryFn: () => apiFetch(`/customers?page=${page}&page_size=10&search=${search}&payment_status=${paymentStatusFilter}`),
   });
 
   const createMutation = useMutation({
@@ -111,11 +112,18 @@ export default function CustomersPage() {
         </button>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
-        <input type="text" placeholder="Search by name, mobile, village..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          className="w-full rounded-xl border border-neutral-800 bg-neutral-900/50 py-2.5 pl-10 pr-4 text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary/30" />
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+          <input type="text" placeholder="Search by name, mobile, village..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            className="w-full rounded-xl border border-neutral-800 bg-neutral-900/50 py-2.5 pl-10 pr-4 text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary/30" />
+        </div>
+        <select value={paymentStatusFilter} onChange={(e) => { setPaymentStatusFilter(e.target.value); setPage(1); }} className="rounded-xl border border-neutral-800 bg-neutral-900/50 py-2.5 px-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/30">
+          <option value="">All Customers</option>
+          <option value="unpaid">Outstanding Due</option>
+          <option value="paid">Fully Paid</option>
+        </select>
       </div>
 
       {/* Table */}

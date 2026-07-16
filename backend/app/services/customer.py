@@ -13,16 +13,24 @@ class CustomerService:
 
     def list_customers(
         self, db: Session, page: int = 1, page_size: int = 20,
-        search: Optional[str] = None, sort_by: Optional[str] = None, sort_order: str = "desc"
+        search: Optional[str] = None, sort_by: Optional[str] = None, sort_order: str = "desc",
+        owner_id: Optional[uuid.UUID] = None,
+        payment_status: Optional[str] = None,
     ):
         customers, total, total_pages = customer_repo.search_customers(
             db, page=page, page_size=page_size, search=search,
             sort_by=sort_by, sort_order=sort_order,
+            owner_id=owner_id,
         )
         # Enrich each customer with outstanding amounts
         items = []
         for c in customers:
             fin = customer_repo.get_outstanding(db, c.id)
+            # Apply payment_status filter
+            if payment_status == "unpaid" and fin["outstanding"] <= 0:
+                continue
+            if payment_status == "paid" and fin["outstanding"] > 0:
+                continue
             items.append({
                 "id": c.id,
                 "customer_id": c.customer_id,
@@ -32,6 +40,13 @@ class CustomerService:
                 "outstanding": fin["outstanding"],
                 "created_at": c.created_at,
             })
+
+        # Adjust totals after filtering
+        if payment_status:
+            total = len(items)
+            import math
+            total_pages = max(1, math.ceil(total / page_size))
+
         return items, total, total_pages
 
     def get_customer(self, db: Session, customer_id: uuid.UUID):
@@ -46,11 +61,13 @@ class CustomerService:
             "outstanding": fin["outstanding"],
         }
 
-    def create_customer(self, db: Session, data: CustomerCreate):
-        customer_id = customer_repo.get_next_customer_id(db)
+    def create_customer(self, db: Session, data: CustomerCreate, owner_id: uuid.UUID = None):
+        customer_id = customer_repo.get_next_customer_id(db, owner_id=owner_id)
         obj_data = data.model_dump()
         obj_data["customer_id"] = customer_id
         obj_data["id"] = uuid.uuid4()
+        if owner_id:
+            obj_data["owner_id"] = owner_id
         return customer_repo.create(db, obj_data)
 
     def update_customer(self, db: Session, customer_id: uuid.UUID, data: CustomerUpdate):

@@ -16,9 +16,9 @@ class MachineRepository(BaseRepository):
     def get_by_name(self, db: Session, name: str) -> Optional[Machine]:
         return db.query(Machine).filter(Machine.name == name).first()
 
-    def get_all_with_stats(self, db: Session) -> List[dict]:
+    def get_all_with_stats(self, db: Session, owner_id: uuid.UUID = None) -> List[dict]:
         """Return all machines with their operational stats."""
-        results = (
+        query = (
             db.query(
                 Machine.id,
                 Machine.name,
@@ -30,6 +30,11 @@ class MachineRepository(BaseRepository):
                 func.coalesce(func.sum(Bill.working_hours), 0).label("total_hours"),
             )
             .outerjoin(Bill, Bill.machine_id == Machine.id)
+        )
+        if owner_id:
+            query = query.filter(Machine.owner_id == owner_id)
+        results = (
+            query
             .group_by(Machine.id, Machine.name, Machine.plate_number, Machine.is_active, Machine.created_at)
             .all()
         )

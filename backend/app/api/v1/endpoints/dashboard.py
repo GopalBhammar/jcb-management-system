@@ -1,5 +1,6 @@
 """Dashboard API endpoint — aggregated stats and chart data."""
 
+import uuid
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -16,4 +17,4 @@ def get_dashboard(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user),
 ):
-    return dashboard_service.get_dashboard_data(db)
+    return dashboard_service.get_dashboard_data(db, owner_id=current_user.id)

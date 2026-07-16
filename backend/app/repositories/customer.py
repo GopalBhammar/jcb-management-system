@@ -16,13 +16,12 @@ class CustomerRepository(BaseRepository):
     def get_by_customer_id(self, db: Session, customer_id: str) -> Optional[Customer]:
         return db.query(Customer).filter(Customer.customer_id == customer_id).first()
 
-    def get_next_customer_id(self, db: Session) -> str:
+    def get_next_customer_id(self, db: Session, owner_id: uuid.UUID = None) -> str:
         """Generate the next sequential customer ID like CUST-0001."""
-        last = (
-            db.query(Customer)
-            .order_by(Customer.created_at.desc())
-            .first()
-        )
+        query = db.query(Customer)
+        if owner_id:
+            query = query.filter(Customer.owner_id == owner_id)
+        last = query.order_by(Customer.created_at.desc()).first()
         if last and last.customer_id:
             try:
                 num = int(last.customer_id.split("-")[1]) + 1
@@ -40,12 +39,17 @@ class CustomerRepository(BaseRepository):
         search: Optional[str] = None,
         sort_by: Optional[str] = None,
         sort_order: str = "desc",
+        owner_id: Optional[uuid.UUID] = None,
     ) -> Tuple[List[Customer], int, int]:
+        filters = []
+        if owner_id:
+            filters.append(Customer.owner_id == owner_id)
         search_columns = [Customer.name, Customer.mobile_number, Customer.village, Customer.customer_id]
         return self.paginate(
             db,
             page=page,
             page_size=page_size,
+            filters=filters,
             search_columns=search_columns,
             search_query=search,
             sort_by=sort_by,

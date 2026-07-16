@@ -53,12 +53,14 @@ class BillService:
         customer_id: Optional[uuid.UUID] = None,
         date_from: Optional[date] = None, date_to: Optional[date] = None,
         sort_by: Optional[str] = None, sort_order: str = "desc",
+        owner_id: Optional[uuid.UUID] = None,
     ):
         bills, total, total_pages = bill_repo.search_bills(
             db, page=page, page_size=page_size, search=search,
             status=status_filter, customer_id=customer_id,
             date_from=date_from, date_to=date_to,
             sort_by=sort_by, sort_order=sort_order,
+            owner_id=owner_id,
         )
         items = []
         for b in bills:
@@ -106,12 +108,17 @@ class BillService:
         }
 
     def create_bill(self, db: Session, data: BillCreate, user_id: uuid.UUID):
-        bill_number = bill_repo.get_next_bill_number(db)
+        bill_number = bill_repo.get_next_bill_number(db, owner_id=user_id)
         obj_data = data.model_dump()
         obj_data["id"] = uuid.uuid4()
         obj_data["bill_number"] = bill_number
         obj_data["created_by"] = user_id
-        obj_data["paid_amount"] = 0.0
+        obj_data["owner_id"] = user_id
+
+        # Support paid_amount at creation (for marking as paid immediately)
+        if "paid_amount" not in obj_data or obj_data["paid_amount"] is None:
+            obj_data["paid_amount"] = 0.0
+
         # Handle date
         if obj_data.get("date"):
             obj_data["date"] = date.fromisoformat(obj_data["date"])
@@ -155,7 +162,7 @@ class BillService:
         if not original:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bill not found")
 
-        bill_number = bill_repo.get_next_bill_number(db)
+        bill_number = bill_repo.get_next_bill_number(db, owner_id=user_id)
         obj_data = {
             "id": uuid.uuid4(),
             "bill_number": bill_number,
@@ -171,6 +178,7 @@ class BillService:
             "discount": float(original.discount),
             "gst_percent": float(original.gst_percent),
             "created_by": user_id,
+            "owner_id": user_id,
             "paid_amount": 0.0,
         }
         obj_data = self._calculate_bill(obj_data)

@@ -34,6 +34,7 @@ class Customer(Base):
     __tablename__ = "customers"
 
     id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    owner_id = Column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     customer_id = Column(String(50), unique=True, index=True, nullable=False) # e.g. CUST-0001
     name = Column(String(255), nullable=False)
     mobile_number = Column(String(20), nullable=True)
@@ -52,6 +53,7 @@ class Machine(Base):
     __tablename__ = "machines"
 
     id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    owner_id = Column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     name = Column(String(255), unique=True, index=True, nullable=False) # e.g. JCB-3DX-1
     plate_number = Column(String(50), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
@@ -65,6 +67,7 @@ class ExpenseCategory(Base):
     __tablename__ = "expense_categories"
 
     id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    owner_id = Column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     name = Column(String(100), unique=True, index=True, nullable=False) # e.g. Diesel, Maintenance
     created_at = Column(DateTime, default=_utcnow, nullable=False)
 
@@ -76,6 +79,7 @@ class Expense(Base):
     __tablename__ = "expenses"
 
     id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    owner_id = Column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     category_id = Column(Uuid(as_uuid=True), ForeignKey("expense_categories.id"), nullable=False)
     date = Column(Date, default=date_type.today, nullable=False)
     amount = Column(Numeric(precision=10, scale=2), nullable=False)
@@ -93,6 +97,7 @@ class Bill(Base):
     __tablename__ = "bills"
 
     id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    owner_id = Column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     bill_number = Column(String(50), unique=True, index=True, nullable=False) # e.g. INV-0001
     customer_id = Column(Uuid(as_uuid=True), ForeignKey("customers.id"), nullable=False)
     date = Column(Date, default=date_type.today, nullable=False)
@@ -123,6 +128,7 @@ class Payment(Base):
     __tablename__ = "payments"
 
     id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    owner_id = Column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     bill_id = Column(Uuid(as_uuid=True), ForeignKey("bills.id"), nullable=True) # can be null if advance/general payment
     customer_id = Column(Uuid(as_uuid=True), ForeignKey("customers.id"), nullable=False)
     amount = Column(Numeric(precision=12, scale=2), nullable=False)

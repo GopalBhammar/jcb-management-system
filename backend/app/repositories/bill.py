@@ -14,16 +14,15 @@ class BillRepository(BaseRepository):
     def __init__(self):
         super().__init__(Bill)
 
-    def get_next_bill_number(self, db: Session) -> str:
+    def get_next_bill_number(self, db: Session, owner_id: uuid.UUID = None) -> str:
         """Generate next bill number using the invoice prefix from settings."""
         settings = db.query(Settings).first()
         prefix = settings.invoice_prefix if settings else "INV"
 
-        last = (
-            db.query(Bill)
-            .order_by(Bill.created_at.desc())
-            .first()
-        )
+        query = db.query(Bill)
+        if owner_id:
+            query = query.filter(Bill.owner_id == owner_id)
+        last = query.order_by(Bill.created_at.desc()).first()
         if last and last.bill_number:
             try:
                 num = int(last.bill_number.split("-")[1]) + 1
@@ -54,8 +53,11 @@ class BillRepository(BaseRepository):
         date_to: Optional[date] = None,
         sort_by: Optional[str] = None,
         sort_order: str = "desc",
+        owner_id: Optional[uuid.UUID] = None,
     ) -> Tuple[List[Bill], int, int]:
         filters = []
+        if owner_id:
+            filters.append(Bill.owner_id == owner_id)
         if status:
             filters.append(Bill.status == status)
         if customer_id:
@@ -98,13 +100,13 @@ class BillRepository(BaseRepository):
         )
         return float(result)
 
-    def get_pending_amount(self, db: Session) -> float:
+    def get_pending_amount(self, db: Session, owner_id: uuid.UUID = None) -> float:
         """Total remaining amount across all unpaid bills."""
-        result = (
-            db.query(func.coalesce(func.sum(Bill.remaining_amount), 0))
-            .filter(Bill.status.in_(["pending", "partial"]))
-            .scalar()
-        )
+        query = db.query(func.coalesce(func.sum(Bill.remaining_amount), 0))
+        query = query.filter(Bill.status.in_(["pending", "partial"]))
+        if owner_id:
+            query = query.filter(Bill.owner_id == owner_id)
+        result = query.scalar()
         return float(result)
 
 

@@ -18,6 +18,7 @@ class BillCreate(BaseModel):
     other_charges: float = Field(0.0, ge=0, description="Other charges")
     discount: float = Field(0.0, ge=0, description="Discount amount")
     gst_percent: float = Field(0.0, ge=0, le=100, description="GST percentage")
+    paid_amount: Optional[float] = Field(None, ge=0, description="Amount already paid (set to total for paid bills)")
 
 
 class BillUpdate(BaseModel):

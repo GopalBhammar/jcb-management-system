@@ -19,19 +19,19 @@ def list_machines(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user),
 ):
-    return machine_repo.get_all_with_stats(db)
+    return machine_repo.get_all_with_stats(db, owner_id=current_user.id)
 
 
 @router.post("", response_model=MachineResponse, status_code=201)
 def create_machine(
     data: MachineCreate,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_admin_user),
+    current_user: User = Depends(deps.get_current_user),
 ):
     existing = machine_repo.get_by_name(db, data.name)
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Machine with this name already exists")
-    obj = machine_repo.create(db, {"id": uuid.uuid4(), **data.model_dump()})
+    obj = machine_repo.create(db, {"id": uuid.uuid4(), "owner_id": current_user.id, **data.model_dump()})
     return {
         "id": obj.id, "name": obj.name, "plate_number": obj.plate_number,
         "is_active": obj.is_active, "created_at": obj.created_at,
@@ -44,14 +44,14 @@ def update_machine(
     machine_id: uuid.UUID,
     data: MachineUpdate,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_admin_user),
+    current_user: User = Depends(deps.get_current_user),
 ):
     update_data = data.model_dump(exclude_unset=True)
     updated = machine_repo.update(db, machine_id, update_data)
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Machine not found")
     # Get fresh data with stats
-    all_machines = machine_repo.get_all_with_stats(db)
+    all_machines = machine_repo.get_all_with_stats(db, owner_id=current_user.id)
     for m in all_machines:
         if m["id"] == machine_id:
             return m
@@ -62,7 +62,7 @@ def update_machine(
 def delete_machine(
     machine_id: uuid.UUID,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_admin_user),
+    current_user: User = Depends(deps.get_current_user),
 ):
     deleted = machine_repo.delete(db, machine_id)
     if not deleted:

@@ -35,6 +35,7 @@ def list_payments(
         payment_method=payment_method,
         date_from=date_from, date_to=date_to,
         sort_by=sort_by, sort_order=sort_order,
+        owner_id=current_user.id,
     )
     return {"items": items, "total": total, "page": page, "page_size": page_size, "total_pages": total_pages}
 
@@ -73,7 +74,7 @@ def update_payment(
 def delete_payment(
     payment_id: uuid.UUID,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_admin_user),
+    current_user: User = Depends(deps.get_current_user),
 ):
     payment_service.delete_payment(db, payment_id)
     return {"message": "Payment deleted successfully", "success": True}

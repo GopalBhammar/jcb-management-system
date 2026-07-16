@@ -69,6 +69,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
+    // Clear any stale state before attempting login
+    deleteCookie("token");
+    setUser(null);
     try {
       const res = await apiFetch<{ access_token: string; token_type: string }>("/auth/login", {
         method: "POST",

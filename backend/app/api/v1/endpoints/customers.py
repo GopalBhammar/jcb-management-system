@@ -24,12 +24,15 @@ def list_customers(
     search: Optional[str] = Query(None),
     sort_by: Optional[str] = Query(None),
     sort_order: str = Query("desc"),
+    payment_status: Optional[str] = Query(None, description="Filter: 'paid' or 'unpaid'"),
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user),
 ):
     items, total, total_pages = customer_service.list_customers(
         db, page=page, page_size=page_size,
         search=search, sort_by=sort_by, sort_order=sort_order,
+        owner_id=current_user.id,
+        payment_status=payment_status,
     )
     return {"items": items, "total": total, "page": page, "page_size": page_size, "total_pages": total_pages}
 
@@ -40,7 +43,7 @@ def create_customer(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user),
 ):
-    customer = customer_service.create_customer(db, data)
+    customer = customer_service.create_customer(db, data, owner_id=current_user.id)
     return customer_service.get_customer(db, customer.id)
 
 
@@ -68,7 +71,7 @@ def update_customer(
 def delete_customer(
     customer_id: uuid.UUID,
     db: Session = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_admin_user),
+    current_user: User = Depends(deps.get_current_user),
 ):
     customer_service.delete_customer(db, customer_id)
     return {"message": "Customer deleted successfully", "success": True}

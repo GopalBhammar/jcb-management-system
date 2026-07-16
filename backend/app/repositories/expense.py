@@ -17,9 +17,9 @@ class ExpenseCategoryRepository(BaseRepository):
     def get_by_name(self, db: Session, name: str) -> Optional[ExpenseCategory]:
         return db.query(ExpenseCategory).filter(ExpenseCategory.name == name).first()
 
-    def get_all_with_totals(self, db: Session) -> List[dict]:
+    def get_all_with_totals(self, db: Session, owner_id: uuid.UUID = None) -> List[dict]:
         """Return all categories with their total expense amounts."""
-        results = (
+        query = (
             db.query(
                 ExpenseCategory.id,
                 ExpenseCategory.name,
@@ -27,6 +27,11 @@ class ExpenseCategoryRepository(BaseRepository):
                 func.coalesce(func.sum(Expense.amount), 0).label("total_expenses"),
             )
             .outerjoin(Expense, Expense.category_id == ExpenseCategory.id)
+        )
+        if owner_id:
+            query = query.filter(ExpenseCategory.owner_id == owner_id)
+        results = (
+            query
             .group_by(ExpenseCategory.id, ExpenseCategory.name, ExpenseCategory.created_at)
             .all()
         )
@@ -55,8 +60,11 @@ class ExpenseRepository(BaseRepository):
         date_to: Optional[date] = None,
         sort_by: Optional[str] = None,
         sort_order: str = "desc",
+        owner_id: Optional[uuid.UUID] = None,
     ) -> Tuple[List[Expense], int, int]:
         filters = []
+        if owner_id:
+            filters.append(Expense.owner_id == owner_id)
         if category_id:
             filters.append(Expense.category_id == category_id)
         if date_from:
@@ -69,28 +77,28 @@ class ExpenseRepository(BaseRepository):
             filters=filters, sort_by=sort_by or "created_at", sort_order=sort_order,
         )
 
-    def get_total_for_date(self, db: Session, target_date: date) -> float:
-        result = (
-            db.query(func.coalesce(func.sum(Expense.amount), 0))
-            .filter(Expense.date == target_date)
-            .scalar()
-        )
+    def get_total_for_date(self, db: Session, target_date: date, owner_id: uuid.UUID = None) -> float:
+        query = db.query(func.coalesce(func.sum(Expense.amount), 0))
+        query = query.filter(Expense.date == target_date)
+        if owner_id:
+            query = query.filter(Expense.owner_id == owner_id)
+        result = query.scalar()
         return float(result)
 
-    def get_monthly_total(self, db: Session, year: int, month: int) -> float:
-        result = (
-            db.query(func.coalesce(func.sum(Expense.amount), 0))
-            .filter(
-                extract("year", Expense.date) == year,
-                extract("month", Expense.date) == month,
-            )
-            .scalar()
+    def get_monthly_total(self, db: Session, year: int, month: int, owner_id: uuid.UUID = None) -> float:
+        query = db.query(func.coalesce(func.sum(Expense.amount), 0))
+        query = query.filter(
+            extract("year", Expense.date) == year,
+            extract("month", Expense.date) == month,
         )
+        if owner_id:
+            query = query.filter(Expense.owner_id == owner_id)
+        result = query.scalar()
         return float(result)
 
-    def get_breakdown_by_category(self, db: Session, year: int, month: int) -> List[dict]:
+    def get_breakdown_by_category(self, db: Session, year: int, month: int, owner_id: uuid.UUID = None) -> List[dict]:
         """Get expense breakdown by category for a given month."""
-        results = (
+        query = (
             db.query(
                 ExpenseCategory.name,
                 func.coalesce(func.sum(Expense.amount), 0).label("total"),
@@ -101,9 +109,10 @@ class ExpenseRepository(BaseRepository):
                 extract("year", Expense.date) == year,
                 extract("month", Expense.date) == month,
             )
-            .group_by(ExpenseCategory.name)
-            .all()
         )
+        if owner_id:
+            query = query.filter(Expense.owner_id == owner_id)
+        results = query.group_by(ExpenseCategory.name).all()
         return [{"category": r.name, "total": float(r.total), "count": r.count} for r in results]
 
 

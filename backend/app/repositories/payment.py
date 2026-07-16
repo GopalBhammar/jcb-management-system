@@ -34,8 +34,11 @@ class PaymentRepository(BaseRepository):
         date_to: Optional[date] = None,
         sort_by: Optional[str] = None,
         sort_order: str = "desc",
+        owner_id: Optional[uuid.UUID] = None,
     ) -> Tuple[List[Payment], int, int]:
         filters = []
+        if owner_id:
+            filters.append(Payment.owner_id == owner_id)
         if customer_id:
             filters.append(Payment.customer_id == customer_id)
         if bill_id:
@@ -52,23 +55,23 @@ class PaymentRepository(BaseRepository):
             filters=filters, sort_by=sort_by or "created_at", sort_order=sort_order,
         )
 
-    def get_total_for_date(self, db: Session, target_date: date) -> float:
-        result = (
-            db.query(func.coalesce(func.sum(Payment.amount), 0))
-            .filter(Payment.date == target_date)
-            .scalar()
-        )
+    def get_total_for_date(self, db: Session, target_date: date, owner_id: uuid.UUID = None) -> float:
+        query = db.query(func.coalesce(func.sum(Payment.amount), 0))
+        query = query.filter(Payment.date == target_date)
+        if owner_id:
+            query = query.filter(Payment.owner_id == owner_id)
+        result = query.scalar()
         return float(result)
 
-    def get_monthly_total(self, db: Session, year: int, month: int) -> float:
-        result = (
-            db.query(func.coalesce(func.sum(Payment.amount), 0))
-            .filter(
-                extract("year", Payment.date) == year,
-                extract("month", Payment.date) == month,
-            )
-            .scalar()
+    def get_monthly_total(self, db: Session, year: int, month: int, owner_id: uuid.UUID = None) -> float:
+        query = db.query(func.coalesce(func.sum(Payment.amount), 0))
+        query = query.filter(
+            extract("year", Payment.date) == year,
+            extract("month", Payment.date) == month,
         )
+        if owner_id:
+            query = query.filter(Payment.owner_id == owner_id)
+        result = query.scalar()
         return float(result)
 
     def get_payments_for_bill(self, db: Session, bill_id: uuid.UUID) -> List[Payment]:

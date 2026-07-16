@@ -47,6 +47,7 @@ class PaymentService:
         date_from: Optional[date] = None,
         date_to: Optional[date] = None,
         sort_by: Optional[str] = None, sort_order: str = "desc",
+        owner_id: Optional[uuid.UUID] = None,
     ):
         payments, total, total_pages = payment_repo.search_payments(
             db, page=page, page_size=page_size,
@@ -54,6 +55,7 @@ class PaymentService:
             payment_method=payment_method,
             date_from=date_from, date_to=date_to,
             sort_by=sort_by, sort_order=sort_order,
+            owner_id=owner_id,
         )
         items = []
         for p in payments:
@@ -93,6 +95,7 @@ class PaymentService:
         obj_data = data.model_dump()
         obj_data["id"] = uuid.uuid4()
         obj_data["received_by"] = user_id
+        obj_data["owner_id"] = user_id
         if obj_data.get("date"):
             obj_data["date"] = date.fromisoformat(obj_data["date"])
         else:
