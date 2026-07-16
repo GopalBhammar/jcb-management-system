@@ -19,10 +19,7 @@ class BillRepository(BaseRepository):
         settings = db.query(Settings).first()
         prefix = settings.invoice_prefix if settings else "INV"
 
-        query = db.query(Bill)
-        if owner_id:
-            query = query.filter(Bill.owner_id == owner_id)
-        last = query.order_by(Bill.created_at.desc()).first()
+        last = db.query(Bill).order_by(Bill.created_at.desc()).first()
         if last and last.bill_number:
             try:
                 num = int(last.bill_number.split("-")[1]) + 1

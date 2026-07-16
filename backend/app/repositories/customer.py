@@ -18,10 +18,7 @@ class CustomerRepository(BaseRepository):
 
     def get_next_customer_id(self, db: Session, owner_id: uuid.UUID = None) -> str:
         """Generate the next sequential customer ID like CUST-0001."""
-        query = db.query(Customer)
-        if owner_id:
-            query = query.filter(Customer.owner_id == owner_id)
-        last = query.order_by(Customer.created_at.desc()).first()
+        last = db.query(Customer).order_by(Customer.created_at.desc()).first()
         if last and last.customer_id:
             try:
                 num = int(last.customer_id.split("-")[1]) + 1
